@@ -14,13 +14,13 @@ app.listen(port, () => {
 });
 
 async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_multi');
+    const { state, saveCreds } = await useMultiFileAuthState('session');
 
     const sock = makeWASocket({
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
         auth: state,
-        browser: ["Ubuntu", "Chrome", "20.0.04"]
+        browser: ["Chrome (Linux)", "Chrome", "120.0.0.0"]
     });
 
     sock.ev.on('connection.update', async (update) => {
@@ -37,7 +37,7 @@ async function startBot() {
     });
 
     if (!sock.authState.creds.registered) {
-        const phoneNumber = "9161277551";
+        const phoneNumber = "9161277551"; // Yahan apna 10 digit ka number likho, aage 91 laga ke
         setTimeout(async () => {
             try {
                 let code = await sock.requestPairingCode(phoneNumber);
@@ -46,7 +46,7 @@ async function startBot() {
             } catch (err) {
                 console.log("Pairing code error: ", err.message);
             }
-        }, 10000); 
+        }, 15000); 
     }
 
     sock.ev.on('messages.upsert', async (m) => {
