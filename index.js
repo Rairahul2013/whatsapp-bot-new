@@ -2,11 +2,17 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = requi
 const pino = require('pino');
 const express = require('express');
 
-// Fake Web Server Render ko active rakhne ke liye
 const app = express();
 const port = process.env.PORT || 3000;
-app.get('/', (req, res) => res.send('Bot is running 24/7! 🚀'));
-app.listen(port, () => console.log(Server listening on port ${port}));
+
+app.get('/', (req, res) => {
+    res.send('Bot is running 24/7! 🚀');
+});
+
+// Is line ko ekdam simple bina kisi backtick ke fix kar diya hai:
+app.listen(port, () => {
+    console.log("Server listening on port " + port);
+});
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_multi');
