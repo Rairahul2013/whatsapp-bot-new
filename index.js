@@ -1,7 +1,8 @@
 const {
     default: makeWASocket,
     useMultiFileAuthState,
-    DisconnectReason
+    DisconnectReason,
+    delay
 } = require('@whiskeysockets/baileys');
 
 const pino = require('pino');
@@ -11,75 +12,74 @@ async function startBot() {
 
     const sock = makeWASocket({
         logger: pino({ level: 'silent' }),
-        printQRInTerminal: false, // Pairing code use kar rahe hain isliye false sahi hai
+        printQRInTerminal: false,
         auth: state,
-        browser: ["Ubuntu", "Chrome", "20.0.04"] // WhatsApp server ko device register karne ke liye zaroori hai
+        browser: ["Ubuntu", "Chrome", "20.0.04"]
     });
 
-    // Jab connection update ho tab pairing code request karenge
+    // Jab connection open ya close hoga
     sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
+        const { connection, lastDisconnect } = update;
 
         if (connection === 'close') {
             const shouldReconnect =
                 lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
 
             if (shouldReconnect) {
-                console.log("Reconnecting bot...");
-                startBot();
+                console.log("Connection closed, reconnecting in 5 seconds...");
+                setTimeout(() => startBot(), 5000); // 5 second baad auto reconnect
             }
         }
 
         else if (connection === 'open') {
             console.log('WhatsApp Bot successfully connected! 🎉');
         }
-
-        // Agar user registered nahi hai, toh connection start hote hi pairing code mangenge
-        if (!sock.authState.creds.registered && connection === 'connecting') {
-            const phoneNumber = "919161277551";
-
-            setTimeout(async () => {
-                try {
-                    let code = await sock.requestPairingCode(phoneNumber);
-                    code = code?.match(/.{1,4}/g)?.join("-") || code;
-                    console.log("CODE_START:" + code + ":CODE_END");
-                } catch (err) {
-                    console.log("Pairing code error: ", err.message);
-                }
-            }, 6000); // Thoda zyada delay (6 seconds) diya hai taaki socket fully ready ho jaye
-        }
     });
+
+    // Pairing code request karne ka sabse stable tareeka
+    if (!sock.authState.creds.registered) {
+        const phoneNumber = "919161277551";
+        
+        // Socket ko fully boot hone ke liye 10 second ka wait denge
+        setTimeout(async () => {
+            try {
+                console.log(Requesting pairing code for: ${phoneNumber});
+                let code = await sock.requestPairingCode(phoneNumber);
+                code = code?.match(/.{1,4}/g)?.join("-") || code;
+                console.log("CODE_START:" + code + ":CODE_END");
+            } catch (err) {
+                console.log("Pairing code error: ", err.message);
+                console.log("Retrying pairing code request in 10 seconds...");
+                // Agar fail hua toh ek baar aur try karega
+                setTimeout(async () => {
+                    try {
+                        let code = await sock.requestPairingCode(phoneNumber);
+                        code = code?.match(/.{1,4}/g)?.join("-") || code;
+                        console.log("CODE_START:" + code + ":CODE_END");
+                    } catch (retryErr) {
+                        console.log("Retry also failed: ", retryErr.message);
+                    }
+                }, 10000);
+            }
+        }, 10000); 
+    }
 
     sock.ev.on('messages.upsert', async (m) => {
         const msg = m.messages[0];
-
         if (!msg.message || msg.key.fromMe) return;
 
         const remoteJid = msg.key.remoteJid;
-
-        const textMessage =
-            msg.message?.conversation ||
-            msg.message?.extendedTextMessage?.text ||
-            "";
-
+        const textMessage = msg.message?.conversation  msg.message?.extendedTextMessage?.text  "";
         const command = textMessage.toLowerCase().trim();
 
         if (command === '.ping') {
-            await sock.sendMessage(remoteJid, {
-                text: 'Pong! Bot active hai. 🚀'
-            });
+            await sock.sendMessage(remoteJid, { text: 'Pong! Bot active hai. 🚀' });
         }
-
         else if (command === '.menu' || command === '.help') {
-            await sock.sendMessage(remoteJid, {
-                text: '✨ *Elaina Bot Menu* ✨\n\n💬 *.ping* - Check bot status\nℹ️ *.info* - About bot'
-            });
+            await sock.sendMessage(remoteJid, { text: '✨ *Elaina Bot Menu* ✨\n\n💬 *.ping* - Check bot status\nℹ️ *.info* - About bot' });
         }
-
         else if (command === '.info') {
-            await sock.sendMessage(remoteJid, {
-                text: 'Main ek 24/7 online rehne wala WhatsApp Bot hoon!'
-            });
+            await sock.sendMessage(remoteJid, { text: 'Main ek 24/7 online rehne wala WhatsApp Bot hoon!' });
         }
     });
 
