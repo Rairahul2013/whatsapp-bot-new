@@ -14,7 +14,8 @@ app.listen(port, () => {
 });
 
 async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState('session');
+    // Session folder ka naam change kar diya
+    const { state, saveCreds } = await useMultiFileAuthState('my_new_session');
 
     const sock = makeWASocket({
         logger: pino({ level: 'silent' }),
@@ -27,17 +28,14 @@ async function startBot() {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
             const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) {
-                console.log("Connection closed, reconnecting...");
-                startBot();
-            }
+            if (shouldReconnect) startBot();
         } else if (connection === 'open') {
             console.log('WhatsApp Bot successfully connected! 🎉');
         }
     });
 
     if (!sock.authState.creds.registered) {
-        const phoneNumber = "9161277551"; // Yahan apna 10 digit ka number likho, aage 91 laga ke
+        const phoneNumber = "9161277551"; 
         setTimeout(async () => {
             try {
                 let code = await sock.requestPairingCode(phoneNumber);
@@ -46,24 +44,11 @@ async function startBot() {
             } catch (err) {
                 console.log("Pairing code error: ", err.message);
             }
-        }, 15000); 
+        }, 25000); // 25 seconds ka delay
     }
-
-    sock.ev.on('messages.upsert', async (m) => {
-        if (!m.messages) return;
-        const msg = m.messages[0];
-        if (!msg || !msg.message || msg.key.fromMe) return;
-
-        const remoteJid = msg.key.remoteJid;
-        const textMessage = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
-        const command = textMessage.toLowerCase().trim();
-
-        if (command === '.ping') {
-            await sock.sendMessage(remoteJid, { text: 'Pong! Bot active hai. 🚀' });
-        }
-    });
 
     sock.ev.on('creds.update', saveCreds);
 }
 
 startBot();
+               
