@@ -1,5 +1,12 @@
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const pino = require('pino');
+const express = require('express');
+
+// Fake Web Server Render ko active rakhne ke liye
+const app = express();
+const port = process.env.PORT || 3000;
+app.get('/', (req, res) => res.send('Bot is running 24/7! 🚀'));
+app.listen(port, () => console.log(Server listening on port ${port}));
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_multi');
@@ -15,9 +22,12 @@ async function startBot() {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
             const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) startBot();
+            if (shouldReconnect) {
+                console.log("Connection closed, reconnecting...");
+                startBot();
+            }
         } else if (connection === 'open') {
-            console.log('Bot Connected Successfully! 🎉');
+            console.log('WhatsApp Bot successfully connected! 🎉');
         }
     });
 
@@ -29,13 +39,26 @@ async function startBot() {
                 code = code?.match(/.{1,4}/g)?.join("-") || code;
                 console.log("CODE_START:" + code + ":CODE_END");
             } catch (err) {
-                console.log("Error: " + err.message);
+                console.log("Pairing code error: ", err.message);
             }
-        }, 10000);
+        }, 10000); 
     }
+
+    sock.ev.on('messages.upsert', async (m) => {
+        if (!m.messages) return;
+        const msg = m.messages[0];
+        if (!msg  !msg.message  msg.key.fromMe) return;
+
+        const remoteJid = msg.key.remoteJid;
+        const textMessage = msg.message?.conversation  msg.message?.extendedTextMessage?.text  "";
+        const command = textMessage.toLowerCase().trim();
+
+        if (command === '.ping') {
+            await sock.sendMessage(remoteJid, { text: 'Pong! Bot active hai. 🚀' });
+        }
+    });
 
     sock.ev.on('creds.update', saveCreds);
 }
 
 startBot();
-                            
