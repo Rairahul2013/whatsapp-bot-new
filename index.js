@@ -1,56 +1,83 @@
-import { makeWASocket, useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys';
+import 'dotenv/config';
+import fs, { existsSync, mkdirSync, rmSync } from 'fs';
+import path, { dirname } from 'path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+import { smsg } from './lib/myfunc.js';
+import makeWASocket, { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers, jidNormalizedUser } from '@whiskeysockets/baileys';
+import NodeCache from 'node-cache';
 import pino from 'pino';
-import express from 'express';
+import config from './config.js';
+import store from './lib/lightweight_store.js';
+import SaveCreds from './lib/session.js';
+import { server, PORT } from './lib/server.js';
+import { printLog } from './lib/print.js';
+import { handleMessages } from './lib/messageHandler.js';
+import commandHandler from './lib/commandHandler.js';
 
-const app = express();
-const port = process.env.PORT || 3000;
+store.readFromFile();
+setInterval(() => store.writeToFile(), config.storeWriteInterval || 10000);
 
-app.get('/', (req, res) => res.send('Bot is running!'));
-app.listen(port, () => console.log(`Server listening on port ${port}`));
+const phoneNumber = config.pairingNumber || "919161277551";
 
-async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState('session');
+// Server start
+server.listen(PORT, () => {
+    printLog('success', `Server listening on port ${PORT}`);
+});
 
-    const sock = makeWASocket({
-        logger: pino({ level: 'silent' }),
-        printQRInTerminal: false,
-        auth: state,
-        browser: ["Ubuntu", "Chrome", "20.0.04"]
-    });
-
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect } = update;
-        if (connection === 'close') {
-            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) startBot();
-        } else if (connection === 'open') {
-            console.log('Bot Connected Successfully! 🎉');
-        }
-    });
-
-    if (!sock.authState.creds.registered) {
-        const phoneNumber = "919161277551"; // Aapka number
-        setTimeout(async () => {
-            try {
-                let code = await sock.requestPairingCode(phoneNumber);
-                console.log("PAIRING_CODE: " + code);
-            } catch (err) { console.log("Error: ", err.message); }
-        }, 5000);
-    }
-
-    sock.ev.on('messages.upsert', async (m) => {
-        const msg = m.messages[0];
-        if (!msg.message || msg.key.fromMe) return;
-        const jid = msg.key.remoteJid;
-        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+async function startQasimDev() {
+    try {
+        const { version } = await fetchLatestBaileysVersion();
+        const { state, saveCreds } = await useMultiFileAuthState(`./session`);
         
-        if (text.toLowerCase() === '.ping') {
-            await sock.sendMessage(jid, { text: 'Pong! 🚀' });
-        }
-    });
+        const QasimDev = makeWASocket({
+            version,
+            logger: pino({ level: 'silent' }),
+            browser: Browsers.macOS('Chrome'),
+            auth: {
+                creds: state.creds,
+                keys: state.keys,
+            },
+            getMessage: async (key) => {
+                const jid = jidNormalizedUser(key.remoteJid);
+                const msg = await store.loadMessage(jid, key.id);
+                return msg?.message || "";
+            },
+        });
 
-    sock.ev.on('creds.update', saveCreds);
+        QasimDev.ev.on('creds.update', saveCreds);
+        store.bind(QasimDev.ev);
+
+        QasimDev.ev.on('messages.upsert', async (chatUpdate) => {
+            try {
+                await handleMessages(QasimDev, chatUpdate);
+            } catch (err) {
+                printLog('error', `Error in messages.upsert: ${err.message}`);
+            }
+        });
+
+        // Pairing code logic
+        const isRegistered = state.creds?.registered === true;
+        if (!isRegistered) {
+            setTimeout(async () => {
+                let code = await QasimDev.requestPairingCode(phoneNumber.replace(/[^0-9]/g, ''));
+                console.log("PAIRING CODE : " + code);
+            }, 3000);
+        }
+
+        QasimDev.ev.on('connection.update', async (s) => {
+            const { connection } = s;
+            if (connection === "open") {
+                printLog('success', 'Bot Connected Successfully!');
+            }
+        });
+
+    } catch (e) {
+        printLog('error', `Start Error: ${e.message}`);
+    }
 }
 
-startBot();
-            
+startQasimDev();
+    
