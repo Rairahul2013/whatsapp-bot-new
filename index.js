@@ -9,7 +9,6 @@ app.get('/', (req, res) => {
     res.send('Bot is running 24/7! 🚀');
 });
 
-// Is line ko ekdam simple bina kisi backtick ke fix kar diya hai:
 app.listen(port, () => {
     console.log("Server listening on port " + port);
 });
@@ -53,10 +52,10 @@ async function startBot() {
     sock.ev.on('messages.upsert', async (m) => {
         if (!m.messages) return;
         const msg = m.messages[0];
-        if (!msg  !msg.message  msg.key.fromMe) return;
+        if (!msg || !msg.message || msg.key.fromMe) return;
 
         const remoteJid = msg.key.remoteJid;
-        const textMessage = msg.message?.conversation  msg.message?.extendedTextMessage?.text  "";
+        const textMessage = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
         const command = textMessage.toLowerCase().trim();
 
         if (command === '.ping') {
