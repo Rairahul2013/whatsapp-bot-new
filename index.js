@@ -11,19 +11,44 @@ async function startBot() {
 
     const sock = makeWASocket({
         logger: pino({ level: 'silent' }),
-        printQRInTerminal: false,
-        auth: state
+        printQRInTerminal: false, // Pairing code use kar rahe hain isliye false sahi hai
+        auth: state,
+        browser: ["Ubuntu", "Chrome", "20.0.04"] // WhatsApp server ko device register karne ke liye zaroori hai
     });
 
-    if (!sock.authState.creds.registered) {
-        const phoneNumber = "919161277551";
+    // Jab connection update ho tab pairing code request karenge
+    sock.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect, qr } = update;
 
-        setTimeout(async () => {
-            let code = await sock.requestPairingCode(phoneNumber);
-            code = code?.match(/.{1,4}/g)?.join("-") || code;
-            console.log("CODE_START:" + code + ":CODE_END");
-        }, 3000);
-    }
+        if (connection === 'close') {
+            const shouldReconnect =
+                lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+
+            if (shouldReconnect) {
+                console.log("Reconnecting bot...");
+                startBot();
+            }
+        }
+
+        else if (connection === 'open') {
+            console.log('WhatsApp Bot successfully connected! 🎉');
+        }
+
+        // Agar user registered nahi hai, toh connection start hote hi pairing code mangenge
+        if (!sock.authState.creds.registered && connection === 'connecting') {
+            const phoneNumber = "919161277551";
+
+            setTimeout(async () => {
+                try {
+                    let code = await sock.requestPairingCode(phoneNumber);
+                    code = code?.match(/.{1,4}/g)?.join("-") || code;
+                    console.log("CODE_START:" + code + ":CODE_END");
+                } catch (err) {
+                    console.log("Pairing code error: ", err.message);
+                }
+            }, 6000); // Thoda zyada delay (6 seconds) diya hai taaki socket fully ready ho jaye
+        }
+    });
 
     sock.ev.on('messages.upsert', async (m) => {
         const msg = m.messages[0];
@@ -59,23 +84,6 @@ async function startBot() {
     });
 
     sock.ev.on('creds.update', saveCreds);
-
-    sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update;
-
-        if (connection === 'close') {
-            const shouldReconnect =
-                lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-
-            if (shouldReconnect) {
-                startBot();
-            }
-        }
-
-        else if (connection === 'open') {
-            console.log('WhatsApp Bot successfully connected! 🎉');
-        }
-    });
 }
 
 startBot();
