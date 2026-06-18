@@ -43,6 +43,7 @@ async function startBot() {
         if (!msg.message || msg.key.fromMe) return;
         const jid = msg.key.remoteJid;
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+        
         if (text.toLowerCase() === '.ping') {
             await sock.sendMessage(jid, { text: 'Pong! 🚀' });
         }
