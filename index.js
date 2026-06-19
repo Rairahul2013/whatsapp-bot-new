@@ -28,6 +28,7 @@ async function startBot() {
         }
     });
 
+    // Aapka number yahan set hai
     if (!sock.authState.creds.registered) {
         const phoneNumber = "919161277551"; 
         setTimeout(async () => {
@@ -38,18 +39,14 @@ async function startBot() {
         }, 5000);
     }
 
-    // Yahan saara message logic 'startBot' function ke andar hai
     sock.ev.on('messages.upsert', async (m) => {
-        if (m.type !== 'notify') return;
         const msg = m.messages[0];
         if (!msg.message || msg.key.fromMe) return;
         const jid = msg.key.remoteJid;
-        const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").toLowerCase();
+        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
         
-        if (text === '.ping') {
+        if (text.toLowerCase() === '.ping') {
             await sock.sendMessage(jid, { text: 'Pong! 🚀' });
-        } else if (text === '.menu') {
-            await sock.sendMessage(jid, { text: 'Available commands: .ping, .menu' });
         }
     });
 
@@ -57,4 +54,4 @@ async function startBot() {
 }
 
 startBot();
-                                         
+            
