@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'url'
 import * as ws from 'ws'
 import SaveCreds from './src/lib/socket.js'
 import clearTmp from './src/lib/tempclear.js'
+
 global.__filename = function filename(pathURL = import.meta.url, rmPrefix = platform !== 'win32') {
   return rmPrefix
     ? /file:\/\/\//.test(pathURL)
@@ -58,10 +59,12 @@ dotenv.config()
 
 async function main() {
   const txt = global.SESSION_ID
+
   if (!txt) {
     console.error('SESSION ID not found.')
     return
   }
+
   try {
     await SaveCreds(txt)
     console.log('Check Completed.')
@@ -69,7 +72,7 @@ async function main() {
     console.error('Error:', error)
   }
 }
+
 main()
+
 await delay(1000 * 10)
-// Baaki ka code waisa hi rahega...
-  
