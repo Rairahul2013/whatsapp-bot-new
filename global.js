@@ -9,9 +9,9 @@ import { platform } from 'process'
 import { fileURLToPath, pathToFileURL } from 'url'
 import * as ws from 'ws'
 
-// SAHI PATH: src hataya gaya hai
-import SaveCreds from './lib/socket.js'
-import clearTmp from './lib/tempclear.js'
+// Root path se import set kiya gaya hai
+import SaveCreds from '../src/lib/socket.js'
+import clearTmp from '../src/lib/tempclear.js'
 
 global.__filename = function filename(pathURL = import.meta.url, rmPrefix = platform !== 'win32') {
   return rmPrefix
@@ -36,9 +36,9 @@ import { default as Pino, default as pino } from 'pino'
 import syntaxerror from 'syntax-error'
 import { format } from 'util'
 import yargs from 'yargs'
-import CloudDBAdapter from './lib/cloudDBAdapter.js'
-import { mongoDB, mongoDBV2 } from './lib/mongoDB.js'
-import { makeWASocket, protoType, serialize } from './lib/simple.js'
+import CloudDBAdapter from '../src/lib/cloudDBAdapter.js'
+import { mongoDB, mongoDBV2 } from '../src/lib/mongoDB.js'
+import { makeWASocket, protoType, serialize } from '../src/lib/simple.js'
 
 const {
   DisconnectReason,
